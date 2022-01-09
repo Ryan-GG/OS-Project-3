@@ -1,0 +1,113 @@
+            +----------------------------+
+            |          CS 450            |
+            |   PROJECT 3: SYSTEM CALLS  |
+            |      DESIGN DOCUMENT       |
+            +----------------------------+
+ 
+---- GROUP ----
+ 
+>> Fill in the names and email addresses of your group members.
+ 
+Gabriel Doon doongs@dukes.jmu.edu
+Ryan Gross grossrd@dukes.jmu.edu
+Sydney May may4sa@dukes.jmu.edu
+Katherine Shepherd shephekl@dukes.jmu.edu
+ 
+---- PRELIMINARIES ----
+ 
+>> If you have any preliminary comments on your submission, please give
+>> them here.
+ 
+Use of late days.
+ 
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+ 
+                 SYSTEM CALLS
+               ================
+ 
+---- DATA STRUCTURES ----
+ 
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+thread.h
+	struct file * files[16];  //List of open files
+    	int fds[16];		   //List of open file descriptors
+ 
+    	struct thread *parent;    //pointer to possible parent
+    	int child_status;		   //Exit status of child process			
+ 
+ 
+>> A2: Describe how file descriptors are associated with open files.
+>> Are file descriptors unique within the entire OS or just within a
+>> single process?
+ 
+When a file is opened it is assigned a unique file descriptor. These file descriptors are unique for just the single process.
+ 
+---- ALGORITHMS ----
+ 
+>> A3: Describe your code for reading and writing user data from the
+>> kernel.
+Arguments are checked to make sure the file in which reading or writing is occurring is correct, such as making sure the file descriptor does not point to a file trying to read to STDOUT. Then filesys methods are used to read/write with the specified files while locking our filesys_lock to make sure syscalls cannot be performed at the same time.
+ 
+>> A4: Briefly describe your implementation of the "wait" system call
+>> and how it interacts with process termination.
+ 
+Each process can create children, and it has a pointer to its list of children. We check to see if the thread even has any children. Then if it does we loop over the threads children list to see if we have a possible match of tid_t. If so we save the matched thread. Then sema down the thread to wait, and return its exit status.
+ 
+>> A5: Any access to user program memory at a user-specified address
+>> can fail due to a bad pointer value.  Such accesses must cause the
+>> process to be terminated.  System calls are fraught with such
+>> accesses, e.g. a "write" system call requires reading the system
+>> call number from the user stack, then each of the call's three
+>> arguments, then an arbitrary amount of user memory, and any of
+>> these can fail at any point.  This poses a design and
+>> error-handling problem: how do you best avoid obscuring the primary
+>> function of code in a morass of error-handling?  Furthermore, when
+>> an error is detected, how do you ensure that all temporarily
+>> allocated resources (locks, buffers, etc.) are freed?  In a few
+>> paragraphs, describe the strategy or strategies you adopted for
+>> managing these issues.  Give an example.
+ 
+To best avoid obscuring the primary function of code from error-handling is separating them into steps. As error-handling comes first to make sure all arguments passed into the function are valid and if not will exit the function. At this step no resources should have been allocated.
+ 
+Then we can go ahead and allocate the resources we know we will need. Then start to perform the main function of the code, and once finished, release any allocated resources.
+ 
+An example would be syscall_write, we separate the function into steps. First error handling, then we allocate a lock to prevent multiple processes from writing. Then after performing the main function of the method, we release our resource allowing for it to now be used by other processes.
+ 
+ 
+ 
+---- SYNCHRONIZATION ----
+ 
+>> A6: The "exec" system call returns -1 if loading the new executable
+>> fails, so it cannot return before the new executable has completed
+>> loading.  How does your code ensure this?  How is the load
+>> success/failure status passed back to the thread that calls "exec"?
+ 
+Our code ensures that it cannot return before the executable has completed by checking user pointers before the call as well as error handling before and after the executable is created. Then we synchronize using interrupt disablement. Then to retrieve the status of a successful/failure we pass the tid back and check if it's a valid tid.
+ 
+>> A7: Consider parent process P with child process C.  How do you
+>> ensure proper synchronization and avoid race conditions when P
+>> calls wait(C) before C exits?  After C exits?  How do you ensure
+>> that all resources are freed in each case?  How about when P
+>> terminates without waiting, before C exits?  After C exits?  Are
+>> there any special cases?
+ 
+When P calls wait(C) before C exits, the child_semaphore is down in process wait, init to 0. When C exits the child_semaphore is upped. Resources are freed by process exit. Same would be for both cases of P when it terminates without waiting.
+ 
+---- RATIONALE ----
+ 
+>> A8: Why did you choose to implement access to user memory from the
+>> kernel in the way that you did?
+ 
+We chose our implementation of access to user memory the way we did because by checking bad user pointers and this leads to better results as page faults will be taken care of immediately.
+ 
+>> A9: What advantages or disadvantages can you see to your design
+>> for file descriptors?
+ 
+An advantage would be its simplicity to get a process file descriptor by doing a search through an array.
+ 
+The disadvantage is that it can have a higher cost than it should be to lookup through the array of fd’s.
+
